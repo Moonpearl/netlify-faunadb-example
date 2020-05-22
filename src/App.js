@@ -131,6 +131,7 @@ export default class App extends Component {
     const { target } = event
     const todoCompleted = target.checked
     const todoId = target.dataset.id
+    const todo = todos.filter(item => getTodoId(item) === todoId)[0];
 
     const updatedTodos = todos.map((todo, i) => {
       const { data } = todo
@@ -141,10 +142,12 @@ export default class App extends Component {
       return todo
     })
 
+    console.log(todos, todo);
     this.setState({
       todos: updatedTodos
     }, () => {
       api.update(todoId, {
+        ...todo.data,
         completed: todoCompleted
       }).then(() => {
         console.log(`update todo ${todoId}`, todoCompleted)
