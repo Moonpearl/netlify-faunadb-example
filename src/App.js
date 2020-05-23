@@ -4,7 +4,7 @@ import AppHeader from './components/AppHeader'
 import SettingsMenu from './components/SettingsMenu'
 import SettingsIcon from './components/SettingsIcon'
 import analytics from './utils/analytics'
-import api from './utils/api'
+import { todosApi } from './utils/api'
 import sortByDate from './utils/sortByDate'
 import isLocalHost from './utils/isLocalHost'
 import './App.css'
@@ -20,7 +20,7 @@ export default class App extends Component {
     analytics.page()
 
     // Fetch all todos
-    api.readAll().then((todos) => {
+    todosApi.readAll().then((todos) => {
       if (todos.message === 'unauthorized') {
         if (isLocalHost()) {
           alert('FaunaDB key is not unauthorized. Make sure you set it in terminal session where you ran `npm start`. Visit http://bit.ly/set-fauna-key for more info')
@@ -65,22 +65,22 @@ export default class App extends Component {
     this.setState({
       todos: optimisticTodoState
     })
-    // Make API request to create new todo
-    api.create(todoInfo).then((response) => {
+    // Make todosApi request to create new todo
+    todosApi.create(todoInfo).then((response) => {
       console.log(response)
       /* Track a custom event */
       analytics.track('todoCreated', {
         category: 'todos',
         label: todoValue,
       })
-      // remove temporaryValue from state and persist API response
+      // remove temporaryValue from state and persist todosApi response
       const persistedState = removeOptimisticTodo(todos).concat(response)
       // Set persisted value to state
       this.setState({
         todos: persistedState
       })
     }).catch((e) => {
-      console.log('An API error occurred', e)
+      console.log('An api error occurred', e)
       const revertedState = removeOptimisticTodo(todos)
       // Reset to original state
       this.setState({
@@ -112,8 +112,8 @@ export default class App extends Component {
       todos: filteredTodos.optimisticState
     })
 
-    // Make API request to delete todo
-    api.delete(todoId).then(() => {
+    // Make todosApi request to delete todo
+    todosApi.delete(todoId).then(() => {
       console.log(`deleted todo id ${todoId}`)
       analytics.track('todoDeleted', {
         category: 'todos',
@@ -131,6 +131,7 @@ export default class App extends Component {
     const { target } = event
     const todoCompleted = target.checked
     const todoId = target.dataset.id
+    const todo = todos.filter(item => getTodoId(item) === todoId)[0];
 
     const updatedTodos = todos.map((todo, i) => {
       const { data } = todo
@@ -141,10 +142,12 @@ export default class App extends Component {
       return todo
     })
 
+    console.log(todos, todo);
     this.setState({
       todos: updatedTodos
     }, () => {
-      api.update(todoId, {
+      todosApi.update(todoId, {
+        ...todo.data,
         completed: todoCompleted
       }).then(() => {
         console.log(`update todo ${todoId}`, todoCompleted)
@@ -153,15 +156,17 @@ export default class App extends Component {
           category: 'todos'
         })
       }).catch((e) => {
-        console.log('An API error occurred', e)
+        console.log('An api error occurred', e)
       })
     })
   }
   updateTodoTitle = (event, currentValue) => {
+    const { todos } = this.state;
     let isDifferent = false
     const todoId = event.target.dataset.key
+    const todo = todos.filter(item => getTodoId(item) === todoId)[0];
 
-    const updatedTodos = this.state.todos.map((todo, i) => {
+    const updatedTodos = todos.map((todo, i) => {
       const id = getTodoId(todo)
       if (id === todoId && todo.data.title !== currentValue) {
         todo.data.title = currentValue
@@ -175,7 +180,8 @@ export default class App extends Component {
       this.setState({
         todos: updatedTodos
       }, () => {
-        api.update(todoId, {
+        todosApi.update(todoId, {
+          ...todo.data,
           title: currentValue
         }).then(() => {
           console.log(`update todo ${todoId}`, currentValue)
@@ -184,7 +190,7 @@ export default class App extends Component {
             label: currentValue
           })
         }).catch((e) => {
-          console.log('An API error occurred', e)
+          console.log('An api error occurred', e)
         })
       })
     }
@@ -221,13 +227,13 @@ export default class App extends Component {
         this.closeModal()
       }, 600)
 
-      api.batchDelete(data.completedTodoIds).then(() => {
+      todosApi.batchDelete(data.completedTodoIds).then(() => {
         console.log(`Batch removal complete`, data.completedTodoIds)
         analytics.track('todosBatchDeleted', {
           category: 'todos',
         })
       }).catch((e) => {
-        console.log('An API error occurred', e)
+        console.log('An api error occurred', e)
       })
     })
   }
@@ -263,7 +269,7 @@ export default class App extends Component {
     return todosByDate.map((todo, i) => {
       const { data, ref } = todo
       const id = getTodoId(todo)
-      // only show delete button after create API response returns
+      // only show delete button after create todosApi response returns
       let deleteButton
       if (ref) {
         deleteButton = (
